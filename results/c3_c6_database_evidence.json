@@ -1,0 +1,99 @@
+{
+  "record_type": "read_only_postgresql_integration_results",
+  "recorded_on": "2026-10-27",
+  "scope": "Frozen C3 CTE and C6 conflicting-tenant request; read-only execution on existing local fixtures.",
+  "database_environment": {
+    "postgresql_client": "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "authentication": "local PostgreSQL password file; credential values not recorded",
+    "runtime_role": "sif_tenant_a",
+    "python_version": "3.12.14",
+    "test_command": "python -m unittest discover -s tests -p test_postgres_readonly.py -v",
+    "suite_exit_status": 0,
+    "tests_in_suite": 4
+  },
+  "expected_results": {
+    "C3": {
+      "authorized_rows": ["o_a1", "o_a2"],
+      "forbidden_rows": ["o_b1"],
+      "unscoped_baseline_rows": ["o_a1", "o_a2", "o_b1"]
+    },
+    "C6": {
+      "authorized_rows": [],
+      "forbidden_rows": ["o_b1"]
+    }
+  },
+  "observed_results": {
+    "C3": {
+      "authenticated_tenant": "tenant_a",
+      "frozen_sql": "WITH open_orders AS (SELECT order_id, tenant_id FROM orders WHERE status = 'open') SELECT order_id FROM open_orders ORDER BY order_id;",
+      "guard_decision": "rewritten",
+      "guard_reason": "tenant_scope_injected_for_each_supported_relation",
+      "guard_sql": "WITH open_orders AS (SELECT order_id, tenant_id FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_a') SELECT order_id FROM open_orders ORDER BY order_id",
+      "arms": {
+        "baseline_unmodified": {
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture_baseline", "on"],
+          "rows": [["o_a1"], ["o_a2"], ["o_b1"]],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        },
+        "baseline_ast_rewritten": {
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture_baseline", "on"],
+          "rows": [["o_a1"], ["o_a2"]],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        },
+        "rls_unmodified": {
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture", "on"],
+          "rows": [["o_a1"], ["o_a2"]],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": true, "rls_forced": true},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": true, "rls_forced": true}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        }
+      }
+    },
+    "C6": {
+      "authenticated_tenant": "tenant_a",
+      "frozen_sql": "SELECT order_id FROM orders WHERE tenant_id = 'tenant_b' AND status = 'open' ORDER BY order_id;",
+      "guard_decision": "rejected",
+      "guard_reason": "explicit_conflicting_tenant",
+      "guarded_sql_executed": false,
+      "arms": {
+        "baseline_unmodified": {
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture_baseline", "on"],
+          "rows": [["o_b1"]],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        },
+        "rls_unmodified": {
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture", "on"],
+          "rows": [],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": true, "rls_forced": true},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": true, "rls_forced": true}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        }
+      }
+    }
+  },
+  "capture_note": "The runner emitted parsed rows, identity, selected role/table metadata, and stderr. It did not preserve a separate raw psql stdout transcript. C2 and C4 were also rerun in this same successful four-test invocation; their earlier detailed record remains in c2_c4_database_evidence.json.",
+  "interpretation_limit": "These are single local fixture observations for C3 and C6, not proof of general SQL safety or production security. C5 and C7 remain untested against PostgreSQL."
+}

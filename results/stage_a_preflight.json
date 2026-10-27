@@ -1,0 +1,440 @@
+{
+  "experiment": "sql_tenant_isolation_stage_a",
+  "result_type": "static_preflight_not_database_experiment",
+  "status": "blocked_for_database_execution",
+  "postgres_client_found": false,
+  "validity_controls": {
+    "negative_control_leak": "not_tested_database_execution_blocked",
+    "rls_authorized_positive": "not_tested",
+    "identity_mismatch_detection": "configuration_mapping_tested_database_binding_not_tested",
+    "removed_policy_detection": "not_tested"
+  },
+  "cases": [
+    {
+      "case_id": "C1",
+      "name": "direct_missing_tenant_predicate",
+      "sql": "SELECT order_id FROM orders WHERE status = 'open' ORDER BY order_id;",
+      "expected": [
+        "o_a1",
+        "o_a2"
+      ],
+      "forbidden": [
+        "o_b1"
+      ],
+      "kind": "authorized",
+      "independent_oracle": {
+        "status": "computed_from_fixture_manifest",
+        "expected": {
+          "authorized": [
+            "o_a1",
+            "o_a2"
+          ],
+          "forbidden": [
+            "o_b1"
+          ]
+        }
+      },
+      "identity_failure_injection": "not_run",
+      "arm_runs": [
+        {
+          "authenticated_tenant": "tenant_a",
+          "no_enforcement": {
+            "status": "not_executed",
+            "reason": "postgresql_unavailable"
+          },
+          "ast_guard": {
+            "decision": "rewritten",
+            "reason": "tenant_scope_injected_for_each_supported_relation",
+            "rewritten_sql": "SELECT order_id FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_a' ORDER BY order_id",
+            "tenant_relations_scoped": [
+              "orders"
+            ],
+            "database_execution": "not_executed"
+          },
+          "postgresql_rls": {
+            "status": "blocked_environment",
+            "reason": "postgresql_client_or_server_not_available_in_checked_environment"
+          },
+          "identity_binding_preflight": {
+            "status": "configuration_validated",
+            "pool_key": "app_tenant_a",
+            "request_principal_match": "configuration_only_not_database_verified"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "C2",
+      "name": "join_tenant_owned_relations",
+      "sql": "SELECT o.order_id, c.name FROM orders o JOIN customers c ON c.customer_id = o.customer_id WHERE o.status = 'open' ORDER BY o.order_id;",
+      "expected": [
+        [
+          "o_a1",
+          "Ada"
+        ],
+        [
+          "o_a2",
+          "Ari"
+        ]
+      ],
+      "forbidden": [
+        [
+          "o_b1",
+          "Bea"
+        ]
+      ],
+      "kind": "authorized",
+      "independent_oracle": {
+        "status": "computed_from_fixture_manifest",
+        "expected": {
+          "authorized": [
+            [
+              "o_a1",
+              "Ada"
+            ],
+            [
+              "o_a2",
+              "Ari"
+            ]
+          ],
+          "forbidden": [
+            [
+              "o_b1",
+              "Bea"
+            ]
+          ]
+        }
+      },
+      "identity_failure_injection": "not_run",
+      "arm_runs": [
+        {
+          "authenticated_tenant": "tenant_a",
+          "no_enforcement": {
+            "status": "not_executed",
+            "reason": "postgresql_unavailable"
+          },
+          "ast_guard": {
+            "decision": "rewritten",
+            "reason": "tenant_scope_injected_for_each_supported_relation",
+            "rewritten_sql": "SELECT o.order_id, c.name FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id WHERE (o.status = 'open' AND o.tenant_id = 'tenant_a') AND c.tenant_id = 'tenant_a' ORDER BY o.order_id",
+            "tenant_relations_scoped": [
+              "o",
+              "c"
+            ],
+            "database_execution": "not_executed"
+          },
+          "postgresql_rls": {
+            "status": "blocked_environment",
+            "reason": "postgresql_client_or_server_not_available_in_checked_environment"
+          },
+          "identity_binding_preflight": {
+            "status": "configuration_validated",
+            "pool_key": "app_tenant_a",
+            "request_principal_match": "configuration_only_not_database_verified"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "C3",
+      "name": "cte_nested_scope",
+      "sql": "WITH open_orders AS (SELECT order_id, tenant_id FROM orders WHERE status = 'open') SELECT order_id FROM open_orders ORDER BY order_id;",
+      "expected": [
+        "o_a1",
+        "o_a2"
+      ],
+      "forbidden": [
+        "o_b1"
+      ],
+      "kind": "authorized",
+      "independent_oracle": {
+        "status": "computed_from_fixture_manifest",
+        "expected": {
+          "authorized": [
+            "o_a1",
+            "o_a2"
+          ],
+          "forbidden": [
+            "o_b1"
+          ]
+        }
+      },
+      "identity_failure_injection": "not_run",
+      "arm_runs": [
+        {
+          "authenticated_tenant": "tenant_a",
+          "no_enforcement": {
+            "status": "not_executed",
+            "reason": "postgresql_unavailable"
+          },
+          "ast_guard": {
+            "decision": "rewritten",
+            "reason": "tenant_scope_injected_for_each_supported_relation",
+            "rewritten_sql": "WITH open_orders AS (SELECT order_id, tenant_id FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_a') SELECT order_id FROM open_orders ORDER BY order_id",
+            "tenant_relations_scoped": [
+              "orders"
+            ],
+            "database_execution": "not_executed"
+          },
+          "postgresql_rls": {
+            "status": "blocked_environment",
+            "reason": "postgresql_client_or_server_not_available_in_checked_environment"
+          },
+          "identity_binding_preflight": {
+            "status": "configuration_validated",
+            "pool_key": "app_tenant_a",
+            "request_principal_match": "configuration_only_not_database_verified"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "C4",
+      "name": "aggregate_cross_tenant_influence",
+      "sql": "SELECT SUM(amount_cents) AS total_cents FROM orders WHERE status = 'open';",
+      "expected": 1500,
+      "forbidden": 9000,
+      "kind": "authorized",
+      "independent_oracle": {
+        "status": "computed_from_fixture_manifest",
+        "expected": {
+          "authorized": 1500,
+          "forbidden_contribution": 9000,
+          "unscoped": 10500
+        }
+      },
+      "identity_failure_injection": "not_run",
+      "arm_runs": [
+        {
+          "authenticated_tenant": "tenant_a",
+          "no_enforcement": {
+            "status": "not_executed",
+            "reason": "postgresql_unavailable"
+          },
+          "ast_guard": {
+            "decision": "rewritten",
+            "reason": "tenant_scope_injected_for_each_supported_relation",
+            "rewritten_sql": "SELECT SUM(amount_cents) AS total_cents FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_a'",
+            "tenant_relations_scoped": [
+              "orders"
+            ],
+            "database_execution": "not_executed"
+          },
+          "postgresql_rls": {
+            "status": "blocked_environment",
+            "reason": "postgresql_client_or_server_not_available_in_checked_environment"
+          },
+          "identity_binding_preflight": {
+            "status": "configuration_validated",
+            "pool_key": "app_tenant_a",
+            "request_principal_match": "configuration_only_not_database_verified"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "C5",
+      "name": "authorized_positive_control",
+      "sql": "SELECT order_id FROM orders WHERE tenant_id = 'tenant_a' AND status = 'open' ORDER BY order_id;",
+      "expected": [
+        "o_a1",
+        "o_a2"
+      ],
+      "forbidden": [
+        "o_b1"
+      ],
+      "kind": "authorized",
+      "independent_oracle": {
+        "status": "computed_from_fixture_manifest",
+        "expected": {
+          "authorized": [
+            "o_a1",
+            "o_a2"
+          ],
+          "forbidden": [
+            "o_b1"
+          ]
+        }
+      },
+      "identity_failure_injection": "not_run",
+      "arm_runs": [
+        {
+          "authenticated_tenant": "tenant_a",
+          "no_enforcement": {
+            "status": "not_executed",
+            "reason": "postgresql_unavailable"
+          },
+          "ast_guard": {
+            "decision": "rewritten",
+            "reason": "tenant_scope_injected_for_each_supported_relation",
+            "rewritten_sql": "SELECT order_id FROM orders WHERE (tenant_id = 'tenant_a' AND status = 'open') AND orders.tenant_id = 'tenant_a' ORDER BY order_id",
+            "tenant_relations_scoped": [
+              "orders"
+            ],
+            "database_execution": "not_executed"
+          },
+          "postgresql_rls": {
+            "status": "blocked_environment",
+            "reason": "postgresql_client_or_server_not_available_in_checked_environment"
+          },
+          "identity_binding_preflight": {
+            "status": "configuration_validated",
+            "pool_key": "app_tenant_a",
+            "request_principal_match": "configuration_only_not_database_verified"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "C6",
+      "name": "explicit_conflicting_tenant_request",
+      "sql": "SELECT order_id FROM orders WHERE tenant_id = 'tenant_b' AND status = 'open' ORDER BY order_id;",
+      "expected": [],
+      "forbidden": [
+        "o_b1"
+      ],
+      "kind": "forbidden",
+      "independent_oracle": {
+        "status": "computed_from_fixture_manifest",
+        "expected": {
+          "authorized": [],
+          "forbidden": [
+            "o_b1"
+          ]
+        }
+      },
+      "identity_failure_injection": "not_run",
+      "arm_runs": [
+        {
+          "authenticated_tenant": "tenant_a",
+          "no_enforcement": {
+            "status": "not_executed",
+            "reason": "postgresql_unavailable"
+          },
+          "ast_guard": {
+            "decision": "rejected",
+            "reason": "explicit_conflicting_tenant",
+            "rewritten_sql": null,
+            "tenant_relations_scoped": [],
+            "database_execution": "not_executed"
+          },
+          "postgresql_rls": {
+            "status": "blocked_environment",
+            "reason": "postgresql_client_or_server_not_available_in_checked_environment"
+          },
+          "identity_binding_preflight": {
+            "status": "configuration_validated",
+            "pool_key": "app_tenant_a",
+            "request_principal_match": "configuration_only_not_database_verified"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "C7",
+      "name": "transaction_pool_identity_reuse",
+      "sql": "SELECT order_id FROM orders WHERE status = 'open' ORDER BY order_id;",
+      "expected": {
+        "tenant_a": [
+          "o_a1",
+          "o_a2"
+        ],
+        "tenant_b": [
+          "o_b1"
+        ]
+      },
+      "forbidden": null,
+      "kind": "lifecycle",
+      "independent_oracle": {
+        "status": "computed_from_fixture_manifest",
+        "expected": {
+          "tenant_a": [
+            "o_a1",
+            "o_a2"
+          ],
+          "tenant_b": [
+            "o_b1"
+          ]
+        }
+      },
+      "identity_failure_injection": "detected:request_database_principal_mismatch",
+      "arm_runs": [
+        {
+          "authenticated_tenant": "tenant_a",
+          "no_enforcement": {
+            "status": "not_executed",
+            "reason": "postgresql_unavailable"
+          },
+          "ast_guard": {
+            "decision": "rewritten",
+            "reason": "tenant_scope_injected_for_each_supported_relation",
+            "rewritten_sql": "SELECT order_id FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_a' ORDER BY order_id",
+            "tenant_relations_scoped": [
+              "orders"
+            ],
+            "database_execution": "not_executed"
+          },
+          "postgresql_rls": {
+            "status": "blocked_environment",
+            "reason": "postgresql_client_or_server_not_available_in_checked_environment"
+          },
+          "identity_binding_preflight": {
+            "status": "configuration_validated",
+            "pool_key": "app_tenant_a",
+            "request_principal_match": "configuration_only_not_database_verified"
+          }
+        },
+        {
+          "authenticated_tenant": "tenant_b",
+          "no_enforcement": {
+            "status": "not_executed",
+            "reason": "postgresql_unavailable"
+          },
+          "ast_guard": {
+            "decision": "rewritten",
+            "reason": "tenant_scope_injected_for_each_supported_relation",
+            "rewritten_sql": "SELECT order_id FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_b' ORDER BY order_id",
+            "tenant_relations_scoped": [
+              "orders"
+            ],
+            "database_execution": "not_executed"
+          },
+          "postgresql_rls": {
+            "status": "blocked_environment",
+            "reason": "postgresql_client_or_server_not_available_in_checked_environment"
+          },
+          "identity_binding_preflight": {
+            "status": "configuration_validated",
+            "pool_key": "app_tenant_b",
+            "request_principal_match": "configuration_only_not_database_verified"
+          }
+        },
+        {
+          "authenticated_tenant": "tenant_a",
+          "no_enforcement": {
+            "status": "not_executed",
+            "reason": "postgresql_unavailable"
+          },
+          "ast_guard": {
+            "decision": "rewritten",
+            "reason": "tenant_scope_injected_for_each_supported_relation",
+            "rewritten_sql": "SELECT order_id FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_a' ORDER BY order_id",
+            "tenant_relations_scoped": [
+              "orders"
+            ],
+            "database_execution": "not_executed"
+          },
+          "postgresql_rls": {
+            "status": "blocked_environment",
+            "reason": "postgresql_client_or_server_not_available_in_checked_environment"
+          },
+          "identity_binding_preflight": {
+            "status": "configuration_validated",
+            "pool_key": "app_tenant_a",
+            "request_principal_match": "configuration_only_not_database_verified"
+          }
+        }
+      ]
+    }
+  ]
+}

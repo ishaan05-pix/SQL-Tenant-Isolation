@@ -1,0 +1,137 @@
+{
+  "record_type": "read_only_postgresql_integration_results",
+  "recorded_on": "2026-10-27",
+  "scope": "Frozen C2 join and C4 aggregate only; single local fixture run.",
+  "database_environment": {
+    "postgresql_client": "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "authentication": "local PostgreSQL password file; credential values not recorded",
+    "runtime_role": "sif_tenant_a",
+    "python_version": "3.12.14",
+    "test_command": "python -m unittest discover -s tests -p test_postgres_readonly.py -v",
+    "suite_exit_status": 0
+  },
+  "identity_preflight": [
+    {
+      "database": "sql_isolation_pilot_fixture_baseline",
+      "current_user": "sif_tenant_a",
+      "session_user": "sif_tenant_a",
+      "transaction_read_only": "on",
+      "exit_status": 0
+    },
+    {
+      "database": "sql_isolation_pilot_fixture",
+      "current_user": "sif_tenant_a",
+      "session_user": "sif_tenant_a",
+      "transaction_read_only": "on",
+      "exit_status": 0
+    }
+  ],
+  "interpretation_limit": "Observed results cover only these frozen cases, role, fixture state, and execution path. They do not establish general SQL safety or production security.",
+  "cases": [
+    {
+      "case_id": "C2",
+      "authenticated_tenant": "tenant_a",
+      "frozen_sql": "SELECT o.order_id, c.name FROM orders o JOIN customers c ON c.customer_id = o.customer_id WHERE o.status = 'open' ORDER BY o.order_id;",
+      "expected_from_fixture_and_oracle": {
+        "authorized_rows": [["o_a1", "Ada"], ["o_a2", "Ari"]],
+        "forbidden_rows": [["o_b1", "Bea"]],
+        "unscoped_baseline_rows": [["o_a1", "Ada"], ["o_a2", "Ari"], ["o_b1", "Bea"]]
+      },
+      "guard": {
+        "decision": "rewritten",
+        "reason": "tenant_scope_injected_for_each_supported_relation",
+        "sql": "SELECT o.order_id, c.name FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id WHERE (o.status = 'open' AND o.tenant_id = 'tenant_a') AND c.tenant_id = 'tenant_a' ORDER BY o.order_id"
+      },
+      "observed_arms": {
+        "baseline_unmodified": {
+          "sql": "SELECT o.order_id, c.name FROM orders o JOIN customers c ON c.customer_id = o.customer_id WHERE o.status = 'open' ORDER BY o.order_id;",
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture_baseline", "on"],
+          "rows": [["o_a1", "Ada"], ["o_a2", "Ari"], ["o_b1", "Bea"]],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        },
+        "baseline_ast_rewritten": {
+          "sql": "SELECT o.order_id, c.name FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id WHERE (o.status = 'open' AND o.tenant_id = 'tenant_a') AND c.tenant_id = 'tenant_a' ORDER BY o.order_id",
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture_baseline", "on"],
+          "rows": [["o_a1", "Ada"], ["o_a2", "Ari"]],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        },
+        "rls_unmodified": {
+          "sql": "SELECT o.order_id, c.name FROM orders o JOIN customers c ON c.customer_id = o.customer_id WHERE o.status = 'open' ORDER BY o.order_id;",
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture", "on"],
+          "rows": [["o_a1", "Ada"], ["o_a2", "Ari"]],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": true, "rls_forced": true},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": true, "rls_forced": true}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        }
+      },
+      "result": "All three arms matched their respective expected outcomes."
+    },
+    {
+      "case_id": "C4",
+      "authenticated_tenant": "tenant_a",
+      "frozen_sql": "SELECT SUM(amount_cents) AS total_cents FROM orders WHERE status = 'open';",
+      "expected_from_independent_fixture_oracle": {
+        "authorized_total_cents": 1500,
+        "forbidden_tenant_contribution_cents": 9000,
+        "unscoped_baseline_total_cents": 10500
+      },
+      "guard": {
+        "decision": "rewritten",
+        "reason": "tenant_scope_injected_for_each_supported_relation",
+        "sql": "SELECT SUM(amount_cents) AS total_cents FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_a'"
+      },
+      "observed_arms": {
+        "baseline_unmodified": {
+          "sql": "SELECT SUM(amount_cents) AS total_cents FROM orders WHERE status = 'open';",
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture_baseline", "on"],
+          "rows": [["10500"]],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        },
+        "baseline_ast_rewritten": {
+          "sql": "SELECT SUM(amount_cents) AS total_cents FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_a'",
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture_baseline", "on"],
+          "rows": [["1500"]],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": false, "rls_forced": false}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        },
+        "rls_unmodified": {
+          "sql": "SELECT SUM(amount_cents) AS total_cents FROM orders WHERE status = 'open';",
+          "identity": ["sif_tenant_a", "sif_tenant_a", "sql_isolation_pilot_fixture", "on"],
+          "rows": [["1500"]],
+          "table_security_metadata": {
+            "customers": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": true, "rls_forced": true},
+            "orders": {"superuser": false, "bypassrls": false, "createdb": false, "createrole": false, "inherit": false, "owner": "sif_fixture_owner", "rls_enabled": true, "rls_forced": true}
+          },
+          "exit_status": 0,
+          "stderr": ""
+        }
+      },
+      "result": "All three arms matched their respective expected outcomes."
+    }
+  ],
+  "capture_note": "The test runner emitted parsed identity, metadata, row, and stderr fields. It did not preserve a separate raw psql stdout transcript."
+}

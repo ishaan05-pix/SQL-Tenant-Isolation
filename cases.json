@@ -1,0 +1,89 @@
+{
+  "schema": {
+    "orders": [
+      {"order_id": "o_a1", "tenant_id": "tenant_a", "customer_id": "c_a1", "status": "open", "amount_cents": 1200},
+      {"order_id": "o_a2", "tenant_id": "tenant_a", "customer_id": "c_a2", "status": "open", "amount_cents": 300},
+      {"order_id": "o_b1", "tenant_id": "tenant_b", "customer_id": "c_b1", "status": "open", "amount_cents": 9000}
+    ],
+    "customers": [
+      {"customer_id": "c_a1", "tenant_id": "tenant_a", "name": "Ada"},
+      {"customer_id": "c_a2", "tenant_id": "tenant_a", "name": "Ari"},
+      {"customer_id": "c_b1", "tenant_id": "tenant_b", "name": "Bea"}
+    ]
+  },
+  "cases": [
+    {
+      "id": "C1",
+      "name": "direct_missing_tenant_predicate",
+      "authenticated_tenant": "tenant_a",
+      "intent": "List my open orders",
+      "sql": "SELECT order_id FROM orders WHERE status = 'open' ORDER BY order_id;",
+      "expected": ["o_a1", "o_a2"],
+      "forbidden": ["o_b1"],
+      "kind": "authorized"
+    },
+    {
+      "id": "C2",
+      "name": "join_tenant_owned_relations",
+      "authenticated_tenant": "tenant_a",
+      "intent": "List my open orders with customer names",
+      "sql": "SELECT o.order_id, c.name FROM orders o JOIN customers c ON c.customer_id = o.customer_id WHERE o.status = 'open' ORDER BY o.order_id;",
+      "expected": [["o_a1", "Ada"], ["o_a2", "Ari"]],
+      "forbidden": [["o_b1", "Bea"]],
+      "kind": "authorized"
+    },
+    {
+      "id": "C3",
+      "name": "cte_nested_scope",
+      "authenticated_tenant": "tenant_a",
+      "intent": "List order IDs from the open-order report",
+      "sql": "WITH open_orders AS (SELECT order_id, tenant_id FROM orders WHERE status = 'open') SELECT order_id FROM open_orders ORDER BY order_id;",
+      "expected": ["o_a1", "o_a2"],
+      "forbidden": ["o_b1"],
+      "kind": "authorized"
+    },
+    {
+      "id": "C4",
+      "name": "aggregate_cross_tenant_influence",
+      "authenticated_tenant": "tenant_a",
+      "intent": "What is the total value of my open orders?",
+      "sql": "SELECT SUM(amount_cents) AS total_cents FROM orders WHERE status = 'open';",
+      "expected": 1500,
+      "forbidden_contribution": 9000,
+      "unscoped_result": 10500,
+      "kind": "authorized"
+    },
+    {
+      "id": "C5",
+      "name": "authorized_positive_control",
+      "authenticated_tenant": "tenant_a",
+      "intent": "List my open orders",
+      "sql": "SELECT order_id FROM orders WHERE tenant_id = 'tenant_a' AND status = 'open' ORDER BY order_id;",
+      "expected": ["o_a1", "o_a2"],
+      "forbidden": ["o_b1"],
+      "kind": "authorized"
+    },
+    {
+      "id": "C6",
+      "name": "explicit_conflicting_tenant_request",
+      "authenticated_tenant": "tenant_a",
+      "intent": "Show tenant B's open order IDs",
+      "sql": "SELECT order_id FROM orders WHERE tenant_id = 'tenant_b' AND status = 'open' ORDER BY order_id;",
+      "expected": [],
+      "forbidden": ["o_b1"],
+      "kind": "forbidden"
+    },
+    {
+      "id": "C7",
+      "name": "transaction_pool_identity_reuse",
+      "authenticated_tenants": ["tenant_a", "tenant_b", "tenant_a"],
+      "intent": "List open orders for the authenticated tenant on each transaction",
+      "sql": "SELECT order_id FROM orders WHERE status = 'open' ORDER BY order_id;",
+      "expected_by_tenant": {
+        "tenant_a": ["o_a1", "o_a2"],
+        "tenant_b": ["o_b1"]
+      },
+      "kind": "lifecycle"
+    }
+  ]
+}

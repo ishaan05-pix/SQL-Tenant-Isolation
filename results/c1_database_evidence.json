@@ -1,0 +1,113 @@
+{
+  "record_type": "observed_c1_postgresql_pilot",
+  "recorded_date": "2026-10-27",
+  "scope": "C1 only; not a general security result",
+  "client": "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe",
+  "frozen_case": {
+    "source": "cases.json#C1",
+    "case_id": "C1",
+    "authenticated_tenant": "tenant_a",
+    "intent": "List my open orders",
+    "sql": "SELECT order_id FROM orders WHERE status = 'open' ORDER BY order_id;",
+    "kind": "authorized"
+  },
+  "oracle_expectation": {
+    "authorized_rows": ["o_a1", "o_a2"],
+    "forbidden_rows": ["o_b1"],
+    "baseline_negative_control_expected_rows": ["o_a1", "o_a2", "o_b1"],
+    "baseline_expectation_basis": "Unscoped result derived from all open orders in the frozen fixture; distinct from the tenant-scoped oracle expectation."
+  },
+  "guard_decision": {
+    "interface": "sql_guard.guard_sql(frozen_case.sql, frozen_case.authenticated_tenant)",
+    "status": "rewritten",
+    "reason": "tenant_scope_injected_for_each_supported_relation",
+    "tenant_relations_scoped": ["orders"],
+    "returned_sql": "SELECT order_id FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_a' ORDER BY order_id"
+  },
+  "identity_preflight": [
+    {
+      "role": "sif_tenant_a",
+      "database": "sql_isolation_pilot_fixture_baseline",
+      "current_user": "sif_tenant_a",
+      "session_user": "sif_tenant_a",
+      "exit_status": 0,
+      "raw_output": "sif_tenant_a|sif_tenant_a|sql_isolation_pilot_fixture_baseline"
+    },
+    {
+      "role": "sif_tenant_a",
+      "database": "sql_isolation_pilot_fixture",
+      "current_user": "sif_tenant_a",
+      "session_user": "sif_tenant_a",
+      "exit_status": 0,
+      "raw_output": "sif_tenant_a|sif_tenant_a|sql_isolation_pilot_fixture"
+    },
+    {
+      "role": "sif_tenant_b",
+      "database": "sql_isolation_pilot_fixture",
+      "current_user": "sif_tenant_b",
+      "session_user": "sif_tenant_b",
+      "exit_status": 0,
+      "raw_output": "sif_tenant_b|sif_tenant_b|sql_isolation_pilot_fixture"
+    }
+  ],
+  "runs": [
+    {
+      "arm": "baseline_negative_control",
+      "authenticated_tenant": "tenant_a",
+      "current_user": "sif_tenant_a",
+      "session_user": "sif_tenant_a",
+      "database": "sql_isolation_pilot_fixture_baseline",
+      "sql_executed": "SELECT order_id FROM orders WHERE status = 'open' ORDER BY order_id;",
+      "observed_rows": ["o_a1", "o_a2", "o_b1"],
+      "raw_output": "BEGIN\n current_user | session_user |           current_database           \n--------------+--------------+--------------------------------------\n sif_tenant_a | sif_tenant_a | sql_isolation_pilot_fixture_baseline\n(1 row)\n\n order_id \n----------\n o_a1\n o_a2\n o_b1\n(3 rows)\n\nCOMMIT",
+      "error": null,
+      "exit_status": 0,
+      "expected_comparison": {
+        "expected_rows": ["o_a1", "o_a2", "o_b1"],
+        "matches_expected": true,
+        "forbidden_row_observed": "o_b1"
+      }
+    },
+    {
+      "arm": "ast_guard_on_baseline",
+      "authenticated_tenant": "tenant_a",
+      "current_user": "sif_tenant_a",
+      "session_user": "sif_tenant_a",
+      "database": "sql_isolation_pilot_fixture_baseline",
+      "sql_executed": "SELECT order_id FROM orders WHERE status = 'open' AND orders.tenant_id = 'tenant_a' ORDER BY order_id",
+      "observed_rows": ["o_a1", "o_a2"],
+      "raw_output": "BEGIN\n current_user | session_user |           current_database           \n--------------+--------------+--------------------------------------\n sif_tenant_a | sif_tenant_a | sql_isolation_pilot_fixture_baseline\n(1 row)\n\n order_id \n----------\n o_a1\n o_a2\n(2 rows)\n\nCOMMIT",
+      "error": null,
+      "exit_status": 0,
+      "expected_comparison": {
+        "expected_rows": ["o_a1", "o_a2"],
+        "matches_expected": true,
+        "forbidden_row_observed": null
+      }
+    },
+    {
+      "arm": "postgresql_rls",
+      "authenticated_tenant": "tenant_a",
+      "current_user": "sif_tenant_a",
+      "session_user": "sif_tenant_a",
+      "database": "sql_isolation_pilot_fixture",
+      "sql_executed": "SELECT order_id FROM orders WHERE status = 'open' ORDER BY order_id;",
+      "observed_rows": ["o_a1", "o_a2"],
+      "raw_output": "BEGIN\n current_user | session_user |      current_database       \n--------------+--------------+-----------------------------\n sif_tenant_a | sif_tenant_a | sql_isolation_pilot_fixture\n(1 row)\n\n order_id \n----------\n o_a1\n o_a2\n(2 rows)\n\nCOMMIT",
+      "error": null,
+      "exit_status": 0,
+      "expected_comparison": {
+        "expected_rows": ["o_a1", "o_a2"],
+        "matches_expected": true,
+        "forbidden_row_observed": null
+      }
+    }
+  ],
+  "unavailable_details": [
+    "A separate stderr stream was not captured; successful psql runs reported no error in the captured output."
+  ],
+  "limitations": [
+    "Only C1 was executed against PostgreSQL; C2-C7 remain untested.",
+    "This single-case fixture result is not a general security guarantee or a research novelty claim."
+  ]
+}
