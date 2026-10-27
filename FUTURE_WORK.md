@@ -1,6 +1,6 @@
 # Proposed future work
 
-**Status: proposal only. None of the architecture, application integration, or evaluation below is implemented or validated by this repository.** Do not interpret this document as a deployment plan already in effect.
+**Status: proposal only.** The architecture, application integration, and expanded adversarial evaluation below remain unimplemented and unvalidated. The repository has separate, bounded read-only PostgreSQL observations for C1, C2, C3, C4, and C6; those results do not implement or validate the broader proposals below. Do not interpret this document as a deployment plan already in effect.
 
 ## Proposed enforcement architecture
 

@@ -17,11 +17,11 @@ flowchart LR
     C[cases.json fixture] --> O[Independent Python oracle]
     O --> E[Expected fixture outputs]
   end
-  subgraph Evidence[Recorded C1 PostgreSQL evidence]
-    U[Unchanged C1] --> B[Unprotected baseline]
-    U --> R[Unchanged C1 under RLS]
-    S -. exact C1 rewrite .-> A[Guarded SQL on baseline]
-    B --> X[Rows recorded in evidence JSON]
+  subgraph Evidence[Recorded C1 and later selected PostgreSQL observations]
+    U[Frozen SQL cases] --> B[No-enforcement baseline]
+    U --> R[Unchanged SQL under RLS]
+    S -. exact guard rewrite .-> A[Guarded SQL on baseline]
+    B --> X[Results recorded per run]
     A --> X
     R --> X
   end
@@ -38,7 +38,7 @@ AST rewriting can return an actionable rejection and can constrain supported que
 
 | Case | Intended construct | Current evidence |
 |---|---|---|
-| C1 | Direct selection missing tenant predicate | Only case with three recorded PostgreSQL arms. |
+| C1 | Direct selection missing tenant predicate | Original historical record contains its three PostgreSQL arms. |
 | C2 | Join involving tenant-owned `orders` and `customers` | Executed once against PostgreSQL; results recorded separately. |
 | C3 | CTE / nested scope | Executed once against PostgreSQL; baseline exposed tenant B, rewrite and RLS returned tenant A. |
 | C4 | `SUM` aggregate where another tenant’s rows could affect the result | Executed once against PostgreSQL; results recorded separately; no cumulative disclosure evaluation. |
@@ -62,7 +62,7 @@ The existing evidence record reports these tenant-A outcomes:
 | AST-rewritten query on baseline | `o_a1`, `o_a2` |
 | Unchanged SQL under PostgreSQL RLS | `o_a1`, `o_a2` |
 
-These outcomes are transcribed from [`results/c1_database_evidence.json`](results/c1_database_evidence.json). The record shows `sif_tenant_a` as both `current_user` and `session_user` for the relevant runs. That is the identity metadata captured then; this documentation pass did not recheck role attributes or policies. The results were not rerun during the C2/C4 test work. This is one historical synthetic C1 observation, not a general security guarantee or novelty claim.
+These outcomes are transcribed from [`results/c1_database_evidence.json`](results/c1_database_evidence.json). The record shows `sif_tenant_a` as both `current_user` and `session_user` for the relevant runs. That is the identity metadata captured then; it is not a current audit of every role attribute or policy. The original C1 SQL was not rerun during the later C2/C3/C4/C6 test runs. This is one historical synthetic C1 observation, not a general security guarantee or novelty claim.
 
 ## C2–C4 and C6 PostgreSQL observations
 
@@ -102,9 +102,9 @@ If `py` is unavailable, use `python -m unittest discover -s tests -p test_sql_gu
 
 **Expected static result:** 12 tests pass. They cover parser/guard decisions, tested join and CTE scoping, rejection of selected unsupported/write/lock/schema shapes, fixture-oracle values, and static identity-map mismatch handling. They do not execute SQL against PostgreSQL. GitHub Actions runs this suite on Python 3.10 and 3.12.
 
-## Optional read-only PostgreSQL checks for C2 and C4
+## Optional read-only PostgreSQL checks for C2, C3, C4, and C6
 
-If the two fixture databases and local password-file authentication are already configured, the separate opt-in test compares the frozen join and aggregate query across the no-enforcement baseline, exact AST rewrite, and PostgreSQL RLS. It checks database identity and selected role/table security metadata. It only runs read-only queries and will not provision or alter the fixture. In PowerShell:
+If the two fixture databases and local password-file authentication are already configured, the opt-in suite compares the frozen join, CTE, and aggregate queries across the no-enforcement baseline, exact AST rewrite, and PostgreSQL RLS. For C6 it checks that the guard rejects a conflicting tenant request and that RLS returns no rows. It verifies database identity and selected role/table metadata. It runs only read-only queries and will not provision or alter the fixture. In PowerShell:
 
 ```powershell
 $env:SIF_RUN_POSTGRES_TESTS = '1'
@@ -114,7 +114,7 @@ $env:SIF_PGPORT = '5432'
 & $pilotPyExe -m unittest discover -s tests -p test_postgres_readonly.py -v
 ```
 
-The check uses the local PostgreSQL password file without prompting. It has passed for C2, C3, C4, and C6; rerun it to reproduce the read-only comparisons. CI does not run this database-dependent test.
+The check uses the local PostgreSQL password file without prompting. The four PostgreSQL integration tests have passed for C2, C3, C4, and C6. GitHub Actions runs the 12 static tests only; it does not run these database-dependent tests.
 
 ## What remains untested
 

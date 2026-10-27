@@ -3,11 +3,11 @@
 **Updated:** 2026-10-27  
 **Scope:** conservative portfolio-demo hardening and evidence inventory.
 
-> **Current status:** The initial sections below preserve earlier snapshots. Later addenda document subsequent work. The current read-only PostgreSQL suite covers C2, C3, C4, and C6; C1 remains a separate historical record, while C5 and C7 remain untested against PostgreSQL. See the README and the two newer result JSON files for the present evidence summary.
+> **Current status:** The initial sections below preserve earlier snapshots. Later addenda document subsequent work. The current read-only PostgreSQL suite covers C2, C3, C4, and C6; C1 remains a separate historical record, while C5 and C7 remain untested against PostgreSQL. There are 12 static unit tests and four opt-in database integration tests. GitHub Actions runs only the static suite. See the README and the two newer result JSON files for the present evidence summary.
 
 > The prior conversation refers to an implementation report, but no `IMPLEMENTATION_REPORT.md` was present in the inspected checkout. This is a new status report; it does not replace or rewrite a historical file. Existing `results/` records are retained.
 
-## Current status
+## Initial implementation snapshot (historical)
 
 ### Implemented in this checkout
 

@@ -2,6 +2,8 @@
 
 **Reviewed:** 2026-10-27. This is a documentation and source-page review, not an independent evaluation of the third-party projects.
 
+> **Project-evidence time scope:** The pilot-status statements in this review describe the earlier C1-only evidence state. Later same-date read-only PostgreSQL observations for C2, C3, C4, and C6 are recorded separately in the result files and do not change the competitor-source findings or establish a research gap. C5 and C7 remain untested against PostgreSQL.
+
 ## Approaches compared
 
 | Approach | What the inspected source supports | Limits of this review |

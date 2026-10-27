@@ -6,7 +6,11 @@
 
 An LLM-assisted analytics system may create SQL that is syntactically valid but omits tenant scope. If the database session can read several tenants, an unscoped query can expose another tenant’s rows. A predicate-rewriting guard and database row-level security (RLS) are distinct control points: the guard can reject or transform a query before execution; RLS filters rows at the database boundary when policies and execution identity are correctly configured.
 
-This pilot narrows that problem to a synthetic two-tenant fixture and frozen SQL cases C1–C7. Its only recorded PostgreSQL comparison is C1. The project has no LLM, application authentication service, or runtime pool implementation.
+This pilot narrows that problem to a synthetic two-tenant fixture and frozen SQL cases C1–C7. C1 has its original historical database record. Separate read-only PostgreSQL observations are recorded for C2, C3, C4, and C6. C5 and C7 remain untested against PostgreSQL. These selected fixture observations do not establish a general security guarantee. The project has no LLM, application authentication service, or runtime pool implementation.
+
+The C1 record predates the later case runs and correctly says that only C1 was executed in that record. `results/stage_a_preflight.json` is an earlier static snapshot whose execution status predates the database observations. The later C2/C4 and C3/C6 evidence files record separate read-only runs; none of these records replaces another.
+
+The test evidence has two distinct parts: 12 static Python unit tests and four opt-in PostgreSQL integration tests for C2, C3, C4, and C6. GitHub Actions runs only the static tests; it does not access PostgreSQL.
 
 ## Paper 1: data-agent attack surface
 
@@ -16,7 +20,7 @@ The authors present a layered vulnerability framework with eight risks spanning 
 
 **How it informed this pilot.** The paper motivates treating tenant identity and database access as a security boundary rather than relying on a model prompt. Its over-privileged-connection concern is relevant to the pilot’s authenticated-tenant input and PostgreSQL role assumptions. Frozen C4 is a single aggregate case and C7 is intended to probe A→B→A identity reuse; neither validates multi-query disclosure or live pool lifecycle in PostgreSQL here.
 
-**What differs.** The paper studies data-agent attack surfaces, adversarial content/prompts, multi-tool workflows, resource use, and six systems. This pilot has no agent, model, payload-generation pipeline, or broad attack evaluation. It compares one fixed SQL query’s baseline, AST-rewritten, and RLS outcomes on a synthetic fixture.
+**What differs.** The paper studies data-agent attack surfaces, adversarial content/prompts, multi-tool workflows, resource use, and six systems. This pilot has no agent, model, payload-generation pipeline, or broad attack evaluation. It compares baseline, AST-rewritten, and RLS outcomes for selected frozen SQL cases on a synthetic fixture.
 
 ## Paper 2: multitenant retrieval and tool use
 
@@ -26,19 +30,19 @@ The paper describes a layered isolation architecture for multitenant RAG and age
 
 **How it informed this pilot.** Its separation of relevance/generation from authorization supports the general design principle that tenant authorization must be enforced by a trusted component. The pilot applies that principle to relational SQL with query rewriting and PostgreSQL RLS, rather than vector retrieval or server-side agent orchestration.
 
-**What differs.** This repository has no document ingestion, vector index, ABAC policy engine, shared inference service, server-side agent orchestration, or retrieval evaluation. Its C1 execution is a tiny direct SQL experiment, not a reproduction of OGX or the paper’s synthetic retrieval benchmark.
+**What differs.** This repository has no document ingestion, vector index, ABAC policy engine, shared inference service, server-side agent orchestration, or retrieval evaluation. Its selected C1/C2/C3/C4/C6 SQL observations are small direct fixture tests, not a reproduction of OGX or the paper’s synthetic retrieval benchmark.
 
 ## Implemented mechanisms versus cited concepts
 
 | Mechanism or idea | Status in this project |
 |---|---|
-| SQLGlot parsing and relation-scoped tenant predicate rewriting | Implemented in `sql_guard.py`; covered only by static unit tests plus the recorded C1 guarded SQL execution. |
+| SQLGlot parsing and relation-scoped tenant predicate rewriting | Implemented in `sql_guard.py`; covered by 12 static tests, guarded SQL execution for C1/C2/C3/C4, and rejection without execution for C6. |
 | Fixture-based expected-result oracle | Implemented in `oracle.py`; computes expected values from `cases.json` independently of the guard and database policy. |
-| PostgreSQL RLS | Configured and exercised for the historical C1 fixture record only. No RLS setup/execution harness is part of the Python implementation. |
+| PostgreSQL RLS | Configured in the existing fixtures and observed for C1, C2, C3, C4, and C6. The opt-in Python test executes read-only SQL against pre-provisioned databases; it does not provision or configure RLS. |
 | Tenant principal mapping | A pure static helper in `identity.py`; not an authentication system or connection pool. |
-| Frozen C1–C7 | Definitions in `cases.json`; only C1 has recorded PostgreSQL observations. |
+| Frozen C1–C7 | Definitions in `cases.json`; C1 has a historical record, while C2/C3/C4/C6 have separate read-only PostgreSQL observations. C5 and C7 remain untested against PostgreSQL. |
 | Prompt injection, generated attacks, LLM SQL generation, ABAC retrieval, vector search, server-side orchestration, audit telemetry, cost/resource controls, cumulative disclosure controls | Discussed in the cited papers or proposed future directions; not implemented or validated here. |
 
 ## Research positioning
 
-The papers informed the motivation and choice of security boundaries, but this project is a literature-informed engineering evaluation of one small SQL path. It does not reproduce either paper’s systems, data, methods, or metrics. The reviewed literature and related guardrail documentation already cover tenant authorization, database enforcement, and agent isolation at a broader level. A one-query pilot cannot establish a literature gap, generalize an empirical finding, or support novelty claims.
+The papers informed the motivation and choice of security boundaries, but this project is a literature-informed engineering evaluation of a small set of SQL paths. It does not reproduce either paper’s systems, data, methods, or metrics. The reviewed literature and related guardrail documentation already cover tenant authorization, database enforcement, and agent isolation at a broader level. These bounded fixture observations cannot establish a literature gap, a general security guarantee, or a generalizable empirical result, and do not support novelty claims.

@@ -3,6 +3,8 @@
 **Decision date:** 2026-10-27  
 **Decision:** Do not continue this as a research project on current evidence. Keep it as a small portfolio demonstration of a narrow AST tenant predicate rewrite alongside PostgreSQL RLS.
 
+> **Evidence time scope:** This decision’s detailed evidence inventory below reflects the earlier C1-only state, before the later same-date C2, C3, C4, and C6 read-only observations were recorded. Those additional observations do not establish a research gap or general security guarantee; the current evidence inventory is in `README.md` and `IMPLEMENTATION_REPORT.md`.
+
 ## Why
 
 The only live database result in the repository is frozen C1. It shows that, for one fixture query and one authenticated role, an unprotected baseline exposed `o_b1`, while the rewritten SQL and unchanged SQL under RLS returned `o_a1` and `o_a2`.

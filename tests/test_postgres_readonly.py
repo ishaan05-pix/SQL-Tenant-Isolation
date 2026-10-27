@@ -1,4 +1,4 @@
-"""Opt-in, read-only PostgreSQL checks for frozen C2 (join) and C4 (SUM).
+"""Opt-in, read-only PostgreSQL checks for frozen C2, C3, C4, and C6.
 
 These tests require the two already-provisioned fixture databases and local
 password-file authentication. They never create or change database objects.
